@@ -1,0 +1,122 @@
+# ===================================================================
+# Noisy DQN with Experience Replay Configuration
+# ===================================================================
+
+# --- Atari Environment Settings ---
+environment:
+  # The Gymnasium environment ID. "NoFrameskip" variant is required
+  # so that AtariPreprocessing can handle frame skipping consistently.
+  name: "BreakoutNoFrameskip-v4"
+
+# --- Reproducibility ---
+# Random seed for NumPy, PyTorch, and the environment.
+# Set to a fixed value for reproducible results.
+seed: 42
+
+# --- Training Loop Settings ---
+training:
+  # Total number of agent steps to train for.
+  # Each step = 1 action taken = 4 raw frames (due to frame skip).
+  # DeepMind 2015 used 12.5M steps (50M frames). 2.5M is a good
+  # balance between training time and performance.
+  num_steps: 2500000
+
+  # Average reward (over plot_window episodes) that triggers early stopping.
+  target_reward: 40
+
+  # How often (in steps) to print progress to the console.
+  print_every: 10000
+
+  # How often (in steps) to save a checkpoint of the model and history.
+  # Set to 0 to disable periodic checkpointing (only saves at the end).
+  checkpoint_every: 100000
+
+  # Window size for computing the moving average of rewards in logs and plots.
+  # Also used for early stopping checks. Higher values = smoother curves.
+  plot_window: 500
+
+  # Execution mode:
+  #   "new"    - Train from scratch
+  #   "resume" - Load saved model and history, then continue training
+  #   "deploy" - Load saved model and visualize the agent playing
+  mode: "new"
+
+# --- Agent Hyperparameters ---
+agent:
+  # Optimizer for updating network weights.
+  #   "adam"    - Adam; adaptive learning rates per parameter (recommended)
+  #   "rmsprop" - RMSprop; used in the original DeepMind DQN paper
+  optimizer: "adam"
+
+  # Learning rate for the optimizer.
+  learning_rate: 0.00025
+
+  # Discount factor for future rewards in the Bellman equation.
+  gamma: 0.99
+
+  # Loss function for Q-value regression.
+  #   "huber"  - Huber loss (SmoothL1); robust to large TD errors (recommended)
+  #   "mse"    - Mean Squared Error; amplifies large TD errors
+  loss_function: "huber"
+
+  # Maximum norm for gradient clipping (applied per training step).
+  # Prevents large gradients from destabilizing training.
+  grad_clip_norm: 1.0
+
+  # Whether to clip rewards to the range [-1, 1].
+  # Normalizes the learning signal so that large rewards don't produce
+  # outsized gradients. Standard practice from the DeepMind 2015 paper.
+  clip_rewards: true
+
+  # Initial noise scale (sigma) for NoisyLinear layers.
+  # Controls the initial magnitude of weight perturbations used for exploration.
+  # Higher values = more initial exploration. The network learns to reduce
+  # sigma over time in well-learned regions.
+  # Default from the Fortunato et al. (2018) paper: 0.5 for factorised noise.
+  sigma_init: 0.5
+
+# --- No Epsilon-Greedy Section ---
+# Unlike standard DQN, Noisy DQN does not use epsilon-greedy exploration.
+# Exploration is driven entirely by the NoisyLinear layers in the Q-network.
+# The noise magnitude (sigma) is a trainable parameter that automatically
+# decreases as the agent becomes more confident in its Q-value estimates.
+
+# --- Experience Replay Buffer ---
+# Stores past transitions and provides random mini-batches for training.
+# Breaks temporal correlation between consecutive samples.
+replay_buffer:
+  # Maximum number of transitions stored. Older transitions are
+  # discarded when full (FIFO). DeepMind 2015 used 1M.
+  capacity: 1000000
+
+  # Number of transitions sampled per training step.
+  batch_size: 32
+
+  # Minimum number of transitions in the buffer before learning begins.
+  # During this warmup phase the agent only explores (collects data).
+  # Ensures the first mini-batches are diverse rather than heavily correlated.
+  # DeepMind 2015 used 50,000.
+  learning_starts: 50000
+
+# --- Target Network ---
+# A frozen copy of the policy network used to compute stable TD targets.
+# Periodically updated by copying weights from the policy network.
+target_network:
+  # How often (in steps) to copy policy network weights to target network.
+  # Higher values = more stable targets but slower adaptation.
+  # DeepMind 2015 used 10,000 steps.
+  update_freq: 10000
+
+# --- File Paths ---
+paths:
+  # Directory where all training outputs are saved.
+  results_dir: "noisy_dqn_results"
+
+  # Filename for the saved model weights (.pth).
+  model_filename: "noisy_dqn_model.pth"
+
+  # Filename for the training history (rewards, losses, step count).
+  history_filename: "training_history.npz"
+
+  # Filename for the training progress plot image.
+  plot_filename: "training_plots.png"
